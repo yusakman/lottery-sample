@@ -1,5 +1,26 @@
 {
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3"
-  }
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@openzeppelin/contracts": "^4.8.0"
+  },
+  "name": "lottery-sapmle-contract",
+  "description": "A sample smart contract for lottery application in the blockchain",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {
+    "hardhat": "^2.12.5"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sonnysangha/lottery-smart-contract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sonnysangha/lottery-smart-contract/issues"
+  },
+  "homepage": "https://github.com/sonnysangha/lottery-smart-contract#readme"
 }

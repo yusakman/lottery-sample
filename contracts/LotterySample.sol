@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
-import "@openzeppelin/contracts/utils/Strings.sol";
-
 pragma solidity >=0.7.0 <0.9.0;
 
-contract Lottery {
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract LotterySample is ReentrancyGuard, Ownable {
     uint256 public constant ticketPrice = 0.01 ether;
-    uint256 public constant maxTickets = 100; // maximum tickets per lottery
+    uint256 public constant maxTickets = 10000; // maximum tickets per lottery
     uint256 public constant ticketCommission = 0.001 ether; // commition per ticket
     uint256 public constant duration = 30 minutes; // The duration set for the lottery
 
@@ -15,7 +17,7 @@ contract Lottery {
     address public lastWinner; // the last winner of the lottery
     uint256 public lastWinnerAmount; // the last winner amount of the lottery
 
-    mapping(address => uint256) public winnings; // maps the winners to there winnings
+    mapping(address => uint256) public winnings; // maps the winners to they winnings amount
     address[] public tickets; //array of purchased Tickets
 
     // modifier to check if caller is the lottery operator
@@ -28,8 +30,8 @@ contract Lottery {
     }
 
     // modifier to check if caller is a winner
-    modifier isWinner() {
-        require(IsWinner(), "Caller is not a winner");
+    modifier onlyWinner() {
+        require(isWinner(), "Caller is not a winner");
         _;
     }
 
@@ -43,11 +45,13 @@ contract Lottery {
         return tickets;
     }
 
+    // return the amount winners received
     function getWinningsForAddress(address addr) public view returns (uint256) {
         return winnings[addr];
     }
 
-    function BuyTickets() public payable {
+    function buyTickets() external payable nonReentrant {
+        require(block.timestamp < expiration, "The lottery is expired");
         require(
             msg.value % ticketPrice == 0,
             string.concat(
@@ -59,7 +63,7 @@ contract Lottery {
         uint256 numOfTicketsToBuy = msg.value / ticketPrice;
 
         require(
-            numOfTicketsToBuy <= RemainingTickets(),
+            numOfTicketsToBuy <= remainingTickets(),
             "Not enough tickets available."
         );
 
@@ -68,7 +72,7 @@ contract Lottery {
         }
     }
 
-    function DrawWinnerTicket() public isOperator {
+    function drawWinnerTicket() public isOperator {
         require(tickets.length > 0, "No tickets were purchased");
 
         bytes32 blockHash = blockhash(block.number - tickets.length);
@@ -101,7 +105,7 @@ contract Lottery {
         return reward2Transfer;
     }
 
-    function WithdrawWinnings() public isWinner {
+    function withdrawWinnings() external nonReentrant onlyWinner {
         address payable winner = payable(msg.sender);
 
         uint256 reward2Transfer = winnings[winner];
@@ -110,7 +114,7 @@ contract Lottery {
         winner.transfer(reward2Transfer);
     }
 
-    function RefundAll() public {
+    function refundAll() public {
         require(block.timestamp >= expiration, "the lottery not expired yet");
 
         for (uint256 i = 0; i < tickets.length; i++) {
@@ -121,7 +125,7 @@ contract Lottery {
         delete tickets;
     }
 
-    function WithdrawCommission() public isOperator {
+    function withdrawCommission() public isOperator {
         address payable operator = payable(msg.sender);
 
         uint256 commission2Transfer = operatorTotalCommission;
@@ -130,15 +134,15 @@ contract Lottery {
         operator.transfer(commission2Transfer);
     }
 
-    function IsWinner() public view returns (bool) {
+    function isWinner() public view returns (bool) {
         return winnings[msg.sender] > 0;
     }
 
-    function CurrentWinningReward() public view returns (uint256) {
+    function currentWinningReward() public view returns (uint256) {
         return tickets.length * ticketPrice;
     }
 
-    function RemainingTickets() public view returns (uint256) {
+    function remainingTickets() public view returns (uint256) {
         return maxTickets - tickets.length;
     }
 }
