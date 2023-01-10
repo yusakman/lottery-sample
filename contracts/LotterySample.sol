@@ -7,10 +7,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract LotterySample is ReentrancyGuard, Ownable {
     uint256 public constant ticketPrice = 0.01 ether;
-    uint256 public constant maxTickets = 10000; // maximum tickets per lottery
     uint256 public constant ticketCommission = 0.001 ether; // commition per ticket
     uint256 public constant duration = 30 minutes; // The duration set for the lottery
-
+    uint256 public constant maxTicketPerUser = 10; // Maximum ticket purchase by 1 address
     uint256 public expiration; // Timeout in case That the lottery was not carried out.
     address public lotteryOperator; // the crator of the lottery
     uint256 public operatorTotalCommission = 0; // the total commission balance
@@ -18,10 +17,11 @@ contract LotterySample is ReentrancyGuard, Ownable {
     uint256 public lastWinnerAmount; // the last winner amount of the lottery
 
     mapping(address => uint256) public winnings; // maps the winners to they winnings amount
+    mapping(address => uint256) public purchaseLimits; // maps the address to their limit to buy
     address[] public tickets; //array of purchased Tickets
 
     // modifier to check if caller is the lottery operator
-    modifier isOperator() {
+    modifier onlyOperator() {
         require(
             (msg.sender == lotteryOperator),
             "Caller is not the lottery operator"
@@ -35,8 +35,10 @@ contract LotterySample is ReentrancyGuard, Ownable {
         _;
     }
 
-    constructor() {
-        lotteryOperator = msg.sender;
+    // The owner of the contract and the operator is different address
+    // The operator is a scheduler address that will call the drawTicket after expiration
+    constructor(address operator) {
+        lotteryOperator = operator;
         expiration = block.timestamp + duration;
     }
 
@@ -60,19 +62,18 @@ contract LotterySample is ReentrancyGuard, Ownable {
                 " Ether"
             )
         );
+        
         uint256 numOfTicketsToBuy = msg.value / ticketPrice;
 
-        require(
-            numOfTicketsToBuy <= remainingTickets(),
-            "Not enough tickets available."
-        );
+        require(numOfTicketsToBuy <= (maxTicketPerUser - purchaseLimits[msg.sender]), "Can't buy more than the limit");
 
         for (uint256 i = 0; i < numOfTicketsToBuy; i++) {
+            purchaseLimits[msg.sender] = purchaseLimits[msg.sender] + 1;
             tickets.push(msg.sender);
         }
     }
 
-    function drawWinnerTicket() public isOperator {
+    function drawWinnerTicket() public onlyOperator {
         require(tickets.length > 0, "No tickets were purchased");
 
         bytes32 blockHash = blockhash(block.number - tickets.length);
@@ -90,7 +91,7 @@ contract LotterySample is ReentrancyGuard, Ownable {
         expiration = block.timestamp + duration;
     }
 
-    function restartDraw() public isOperator {
+    function restartDraw() public onlyOperator {
         require(tickets.length == 0, "Cannot Restart Draw as Draw is in play");
 
         delete tickets;
@@ -125,7 +126,7 @@ contract LotterySample is ReentrancyGuard, Ownable {
         delete tickets;
     }
 
-    function withdrawCommission() public isOperator {
+    function withdrawCommission() public onlyOperator {
         address payable operator = payable(msg.sender);
 
         uint256 commission2Transfer = operatorTotalCommission;
@@ -142,7 +143,7 @@ contract LotterySample is ReentrancyGuard, Ownable {
         return tickets.length * ticketPrice;
     }
 
-    function remainingTickets() public view returns (uint256) {
-        return maxTickets - tickets.length;
+    function gerPurchaseLimits() public view returns (uint256) {
+        return maxTicketPerUser - purchaseLimits[msg.sender];
     }
 }
